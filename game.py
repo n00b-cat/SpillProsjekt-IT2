@@ -27,7 +27,7 @@ for x in range(20):
             type = "ore"
             value = 20
         else:
-            type = "dirt"
+            type = "stone"
             value = 1
         
         tiles.append(Tile(x * 32, y * 32, type, value))
@@ -44,16 +44,19 @@ directionVector = pygame.math.Vector2()
 playerImage = pygame.image.load("player.png")
 
 lastMine = 0
-mineColldown = 500
+mineColldown = 1000
 money = 0
 
 # Font
 font = pygame.font.Font('Micro5-Regular.ttf', 32)
 
 # Shop
+shopOpen = False
+
 shopText = font.render(f"Shop", True, "white", "black")
 shopTextRect = shopText.get_rect(topleft =(560, 10))
-shopOpen = False
+
+upgradePrice = 15
 
 # Gameloop
 running = True
@@ -71,10 +74,14 @@ while running:
             if (shopTextRect.collidepoint(mousePosition)) and event.button == 1:
                 if shopOpen:
                     shopOpen = False
-                    print("close")
                 else:
                     shopOpen = True
-                    print("open")
+                
+            elif (upgradeTextRect.collidepoint(mousePosition)) and event.button == 1 and money >= upgradePrice:
+                print("test")
+                money -= upgradePrice
+                upgradePrice += upgradePrice * 1.05
+                mineColldown -= 100
 
     keys = pygame.key.get_pressed()
     directionVector.x = keys[pygame.K_d] - keys[pygame.K_a]
@@ -117,21 +124,25 @@ while running:
     for tile in tiles:
         if (tile.type == "empty"):
             window.blit(tileMapImage, tile.rect, (0, 0, 32, 32))
-        elif (tile.type == "dirt"):
+        elif (tile.type == "stone"):
             window.blit(tileMapImage, tile.rect, (32, 0, 64, 32))
         elif (tile.type == "ore"):
             window.blit(tileMapImage, tile.rect, (64, 0, 96, 32))
 
     window.blit(playerImage, player, (0, 0, 24, 24))
 
-    moneyCounter = font.render(f"Money: {money}", True, "white", "black")
+    moneyCounter = font.render(f"Money: ${money}", True, "white", "black")
     window.blit(moneyCounter, (10, 10))
     
     window.blit(shopText, (560, 10))
+
+    upgradeText = font.render(f"Mining Speed +1 ${upgradePrice}", True, "black", "white")
+    upgradeTextRect = upgradeText.get_rect(topleft =(230, 150))
     
     if shopOpen:
         pygame.draw.rect(window, "black", (220, 100, 200, 300))
         window.blit(shopText, (300, 110))
+        window.blit(upgradeText, (230, 150))
 
     pygame.display.update()
 
