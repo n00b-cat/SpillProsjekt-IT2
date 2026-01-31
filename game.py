@@ -7,6 +7,15 @@ windowWidth, windowHeight = 640, 480
 window = pygame.display.set_mode([windowWidth, windowHeight])
 pygame.display.set_caption("Mining game")
 
+# Surrounding tiles
+def showTiles(cordinateX, cordinateY):
+    for y in range(cordinateY -1, cordinateY + 2):
+        for x in range(cordinateX -1, cordinateX + 2):
+            for tile in tiles:
+                if tile.rect.x // tileSize == x and tile.rect.y // tileSize == y:
+                    tile.hidden = False
+                    continue
+
 # Make map
 tileSize = 32
 tiles = []
@@ -39,6 +48,8 @@ for x in range(20):
 for tile in tiles:
     if tile.rect.x // tileSize <= 3 and tile.rect.y // tileSize <= 3:
         tile.type = "empty"
+        tile.hidden = False
+        showTiles(tile.rect.x // tileSize, tile.rect.y // tileSize)
 
 # Player stats 
 
@@ -63,31 +74,36 @@ font = pygame.font.Font('Micro5-Regular.ttf', 32)
 shopOpen = False
 
 class UpgradeButton(pygame.sprite.Sprite):
-    def __init__(self, x, y, text, price, group):
+    def __init__(self, x, y, text, price, type, amount, group):
         super().__init__(group)
         self.x = x
         self.y = y
+        self.type = type
+        self.amount = amount
         self.text = text
         self.price = price
         self.displayText = font.render("LOADING", True, "white", "Blue")
-    
+
     def update(self):
         self.displayText = font.render(f"{self.text} ${round(self.price, 2)}", True, "white", "Blue")
         self.rect = self.displayText.get_rect(topleft =(self.x, self.y))
-    
+
     def checkBuy(self, mousePos):
         if (self.rect.collidepoint(mousePos)) and player.money >= self.price and shopOpen:
             player.money -= self.price
             self.price = self.price * 1.05
-            player.mineColldown -= 100
+            if self.type == "mineColldown":
+                player.mineColldown -= self.amount
+            if self.type == "mineDamage":
+                player.mineDamage += self.amount
 
     def draw(self, surface):
         surface.blit(self.displayText, (self.x, self.y))
 
 upgrades = pygame.sprite.Group()
 
-miningColldown = UpgradeButton(230, 150, "-100ms Colldown", 15, upgrades)
-miningDamage = UpgradeButton(230, 230, "+1 Damage", 20, upgrades)
+miningColldown = UpgradeButton(230, 150, "-100ms Colldown", 15, "mineColldown", 100, upgrades)
+miningDamage = UpgradeButton(230, 230, "+1 Damage", 20, "mineDamage", 1, upgrades)
 
 shopText = font.render(f"Shop", True, "white", "black")
 shopTextRect = shopText.get_rect(topleft =(560, 10))
@@ -109,11 +125,12 @@ def collision(tiles, axis):
                 elif axis == "y":
                     player.rect.y -= (player.directionVector.y * player.speed) * 6
                 
-                tile.health -= 1
+                tile.health -= player.mineDamage
 
                 if tile.health <= 0:
                     tile.type = "empty"
                     player.money += tile.value
+                    showTiles(tile.rect.x // tileSize, tile.rect.y // tileSize)
             else:
                 if axis == "x":
                     player.rect.x -= player.directionVector.x * player.speed
@@ -143,14 +160,6 @@ while running:
 
     if player.directionVector:
         player.directionVector = player.directionVector.normalize()
-
-    # Surrounding tiles
-    # cordinateX = int(player.rect.x // tileSize)
-    # cordinateY = int(player.rect.y // tileSize)
-
-    # for y in range(cordinateY -1, cordinateY + 2):
-    #     for x in range(cordinateX -1, cordinateX + 2):
-    #         print(f"x:{x}, y:{y}")
     
     player.rect.x += player.directionVector.x * player.speed
     collision(tiles, "x")
@@ -164,8 +173,10 @@ while running:
     for tile in tiles:
         if (tile.type == "empty"):
             window.blit(tileMapImage, tile.rect, (160, 32, 192, 64))
-        elif (tile.type == "dirt"):
+        elif (tile.hidden):
             window.blit(tileMapImage, tile.rect, (32, 0, 64, 32))
+        elif (tile.type == "dirt"):
+            window.blit(tileMapImage, tile.rect, (0, 0, 32, 32))
         elif (tile.type == "ore"):
             window.blit(tileMapImage, tile.rect, (32, 96, 64, 128))
 
