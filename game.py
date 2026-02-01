@@ -24,7 +24,7 @@ tileMapImage = pygame.image.load("tilemap.png")
 
 class Tile():
     def __init__(self, x, y, type, value, health):
-        self.rect = pygame.Rect(x, y, 32, 32)
+        self.rect = pygame.Rect(x, y, tileSize, tileSize)
         self.type = type
         self.value = value
         self.health = health
@@ -43,7 +43,7 @@ for x in range(20):
             value = 1
             health = 2
         
-        tiles.append(Tile(x * 32, y * 32, type, value, health))
+        tiles.append(Tile(x * tileSize, y * tileSize, type, value, health))
 
 for tile in tiles:
     if tile.rect.x // tileSize <= 3 and tile.rect.y // tileSize <= 3:
@@ -54,64 +54,93 @@ for tile in tiles:
 # Player stats 
 
 class Player():
-    def __init__(self, speed):
-        self.rect = pygame.FRect(30, 30, 20, 20)
-        self.speed = speed
-        self.directionVector = pygame.math.Vector2()
+    def __init__(self):
         self.image = pygame.image.load("player.png")
+        self.rect = pygame.FRect(30, 30, 20, 20)
+        self.speed = 1.3
+        self.directionVector = pygame.math.Vector2()
         
         self.lastMine = 0
         self.mineColldown = 1000
         self.mineDamage = 1
         self.money = 0
 
-player = Player(1.3)
+player = Player()
 
 # Font
 font = pygame.font.Font('Micro5-Regular.ttf', 32)
 
 # Shop
+
 shopOpen = False
 
-class UpgradeButton(pygame.sprite.Sprite):
-    def __init__(self, x, y, text, price, type, amount, group):
-        super().__init__(group)
+class Button():
+    def __init__(self, x, y , text, action):
         self.x = x
         self.y = y
-        self.type = type
-        self.amount = amount
+        self.text = text
+        self.action = action
+        self.displayText = font.render("LOADING", True, "white", "Blue")
+    
+    def draw(self, surface):
+        self.displayText = font.render(self.text, True, "white", "Blue")
+        surface.blit(self.displayText, (self.x, self.y))
+    
+    def onClick(self, mousePos):
+        self.rect = self.displayText.get_rect(topleft =(self.x, self.y))
+        if self.rect.collidepoint(mousePos):
+            self.action()
+
+    def updateText(self, newText):
+        self.text = newText
+
+class Upgrade():
+    def __init__(self, text, price):
         self.text = text
         self.price = price
-        self.displayText = font.render("LOADING", True, "white", "Blue")
 
-    def update(self):
-        self.displayText = font.render(f"{self.text} ${round(self.price, 2)}", True, "white", "Blue")
-        self.rect = self.displayText.get_rect(topleft =(self.x, self.y))
+upgradeList = [
+    Upgrade("Damage", 15),
+    Upgrade("Speed", 10),
+    Upgrade("Cooldown", 15)
+]
 
-    def checkBuy(self, mousePos):
-        if (self.rect.collidepoint(mousePos)) and player.money >= self.price and shopOpen:
-            player.money -= self.price
-            self.price = self.price * 1.05
-            if self.type == "mineColldown":
-                player.mineColldown -= self.amount
-            if self.type == "mineDamage":
-                player.mineDamage += self.amount
+def buyDamageUpgrade():
+    upgrade = upgradeList[0]
+    if upgrade.price <= player.money:
+        player.money -= upgrade.price
+        player.mineDamage += 1
+        upgrade.price = round(upgrade.price * 1.05, 2)
+        upgrades[0].updateText(f"+1 Damage ${upgrade.price}")
 
-    def draw(self, surface):
-        surface.blit(self.displayText, (self.x, self.y))
+def buySpeedUpgrade():
+    upgrade = upgradeList[1]
+    if upgrade.price <= player.money:
+        player.money -= upgrade.price
+        player.speed += 0.1
+        upgrade.price = round(upgrade.price * 1.05, 2)
+        upgrades[1].updateText(f"+0.1 speed ${upgrade.price}")
 
-upgrades = pygame.sprite.Group()
+def buyMiningSpeedUpgrade():
+    upgrade = upgradeList[2]
+    if upgrade.price <= player.money:
+        player.money -= upgrade.price
+        player.mineColldown -= 50
+        upgrade.price = round(upgrade.price * 1.05, 2)
+        upgrades[2].updateText(f"-50ms Colldown ${upgrade.price}")
 
-miningColldown = UpgradeButton(230, 150, "-100ms Colldown", 15, "mineColldown", 100, upgrades)
-miningDamage = UpgradeButton(230, 230, "+1 Damage", 20, "mineDamage", 1, upgrades)
+def openShop():
+    global shopOpen
+    shopOpen = not shopOpen
 
-shopText = font.render(f"Shop", True, "white", "black")
-shopTextRect = shopText.get_rect(topleft =(560, 10))
+upgrades = []
+upgrades.append(Button(230, 140, "+1 Damage $15", buyDamageUpgrade))
+upgrades.append(Button(230, 190, "+0.1 speed $10", buySpeedUpgrade))
+upgrades.append(Button(230, 240, "-50ms Colldown $15", buyMiningSpeedUpgrade))
 
-# Gameloop
-running = True
-clock = pygame.time.Clock()
-deltaTime = 0
+shopButton = Button(560, 40, "Shop", openShop)
+
+# Collisions
 
 def collision(tiles, axis):
     for tile in tiles:
@@ -137,22 +166,24 @@ def collision(tiles, axis):
                 elif axis == "y":
                     player.rect.y -= player.directionVector.y * player.speed
 
+# Gameloop
+running = True
+clock = pygame.time.Clock()
+deltaTime = 0
+
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
-        
+            running = False    
+
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             mousePosition = pygame.mouse.get_pos()
 
-            if (shopTextRect.collidepoint(mousePosition)):
-                if shopOpen:
-                    shopOpen = False
-                else:
-                    shopOpen = True
-            else:
+            shopButton.onClick(mousePosition)
+
+            if shopOpen:
                 for upgrade in upgrades:
-                    upgrade.checkBuy(mousePosition)
+                    upgrade.onClick(mousePosition)
 
     keys = pygame.key.get_pressed()
     player.directionVector.x = keys[pygame.K_d] - keys[pygame.K_a]
@@ -172,26 +203,23 @@ while running:
 
     for tile in tiles:
         if (tile.type == "empty"):
-            window.blit(tileMapImage, tile.rect, (160, 32, 192, 64))
+            window.blit(tileMapImage, tile.rect, (tileSize* 5, tileSize, tileSize * 6, tileSize * 2))
         elif (tile.hidden):
-            window.blit(tileMapImage, tile.rect, (32, 0, 64, 32))
+            window.blit(tileMapImage, tile.rect, (tileSize, 0, tileSize * 2, tileSize))
         elif (tile.type == "dirt"):
-            window.blit(tileMapImage, tile.rect, (0, 0, 32, 32))
+            window.blit(tileMapImage, tile.rect, (0, 0, tileSize, tileSize))
         elif (tile.type == "ore"):
-            window.blit(tileMapImage, tile.rect, (32, 96, 64, 128))
+            window.blit(tileMapImage, tile.rect, (tileSize, tileSize * 3, tileSize * 2, tileSize * 4))
 
     window.blit(player.image, player, (0, 0, 24, 24))
 
-    moneyCounter = font.render(f"Money: ${round(player.money)}", True, "white", "black")
+    moneyCounter = font.render(f"Money: ${round(player.money, 2)}", True, "white", "black")
     window.blit(moneyCounter, (10, 10))
     
-    upgrades.update()
-
-    window.blit(shopText, (560, 10))
+    shopButton.draw(window)
     
     if shopOpen:
-        pygame.draw.rect(window, "black", (220, 100, 200, 300))
-        window.blit(shopText, (300, 110))
+        pygame.draw.rect(window, "black", (195, 100, 250, 300))
 
         for upgrade in upgrades:
             upgrade.draw(window)
