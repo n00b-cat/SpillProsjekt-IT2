@@ -3,9 +3,15 @@ import pygame, random
 pygame.init()
 
 # Game window
-windowWidth, windowHeight = 640, 480
+windowWidth, windowHeight = 1280, 960
 window = pygame.display.set_mode([windowWidth, windowHeight])
 pygame.display.set_caption("Mining game")
+
+font = pygame.font.Font('Micro5-Regular.ttf', 32)
+
+# Variables
+tileSize = 64
+tiles = []
 
 # Surrounding tiles
 def showTiles(cordinateX, cordinateY):
@@ -17,8 +23,6 @@ def showTiles(cordinateX, cordinateY):
                     continue
 
 # Make map
-tileSize = 32
-tiles = []
 
 tileMapImage = pygame.image.load("tilemap.png")
 
@@ -56,8 +60,8 @@ for tile in tiles:
 class Player():
     def __init__(self):
         self.image = pygame.image.load("player.png")
-        self.rect = pygame.FRect(30, 30, 20, 20)
-        self.speed = 1.3
+        self.rect = pygame.FRect(70, 70, 48, 48)
+        self.speed = 2.6
         self.directionVector = pygame.math.Vector2()
         
         self.lastMine = 0
@@ -65,14 +69,51 @@ class Player():
         self.mineDamage = 1
         self.money = 0
 
-player = Player()
-
-# Font
-font = pygame.font.Font('Micro5-Regular.ttf', 32)
-
 # Shop
 
-shopOpen = False
+class Shop():
+    def __init__(self):
+        self.isOpen = False
+        self.shopButton = Button(560, 40, "Shop", self.openShop)
+
+        self.upgradeStats = [
+            Upgrade("Damage", 15),
+            Upgrade("Speed", 10),
+            Upgrade("Cooldown", 15)
+        ]
+
+        self.upgradeButtons = [
+            Button(230, 140, "+1 Damage $15", self.buyDamageUpgrade),
+            Button(230, 190, "+0.1 speed $10", self.buySpeedUpgrade),
+            Button(230, 240, "-50ms Colldown $15", self.buyMiningSpeedUpgrade)
+        ]
+
+    def openShop(self):
+        self.isOpen = not self.isOpen
+
+    def buyDamageUpgrade(self):
+        upgrade = self.upgradeStats[0]
+        if upgrade.price <= player.money:
+            player.money -= upgrade.price
+            player.mineDamage += 1
+            upgrade.price = round(upgrade.price * 1.05, 2)
+            self.upgradeButtons[0].updateText(f"+1 Damage ${upgrade.price}")
+
+    def buySpeedUpgrade(self):
+        upgrade = self.upgradeStats[1]
+        if upgrade.price <= player.money:
+            player.money -= upgrade.price
+            player.speed += 0.1
+            upgrade.price = round(upgrade.price * 1.05, 2)
+            self.upgradeButtons[1].updateText(f"+0.1 speed ${upgrade.price}")
+
+    def buyMiningSpeedUpgrade(self):
+        upgrade = self.upgradeStats[2]
+        if upgrade.price <= player.money:
+            player.money -= upgrade.price
+            player.mineColldown -= 50
+            upgrade.price = round(upgrade.price * 1.05, 2)
+            self.upgradeButtons[2].updateText(f"-50ms Colldown ${upgrade.price}")
 
 class Button():
     def __init__(self, x, y , text, action):
@@ -98,47 +139,6 @@ class Upgrade():
     def __init__(self, text, price):
         self.text = text
         self.price = price
-
-upgradeList = [
-    Upgrade("Damage", 15),
-    Upgrade("Speed", 10),
-    Upgrade("Cooldown", 15)
-]
-
-def buyDamageUpgrade():
-    upgrade = upgradeList[0]
-    if upgrade.price <= player.money:
-        player.money -= upgrade.price
-        player.mineDamage += 1
-        upgrade.price = round(upgrade.price * 1.05, 2)
-        upgrades[0].updateText(f"+1 Damage ${upgrade.price}")
-
-def buySpeedUpgrade():
-    upgrade = upgradeList[1]
-    if upgrade.price <= player.money:
-        player.money -= upgrade.price
-        player.speed += 0.1
-        upgrade.price = round(upgrade.price * 1.05, 2)
-        upgrades[1].updateText(f"+0.1 speed ${upgrade.price}")
-
-def buyMiningSpeedUpgrade():
-    upgrade = upgradeList[2]
-    if upgrade.price <= player.money:
-        player.money -= upgrade.price
-        player.mineColldown -= 50
-        upgrade.price = round(upgrade.price * 1.05, 2)
-        upgrades[2].updateText(f"-50ms Colldown ${upgrade.price}")
-
-def openShop():
-    global shopOpen
-    shopOpen = not shopOpen
-
-upgrades = []
-upgrades.append(Button(230, 140, "+1 Damage $15", buyDamageUpgrade))
-upgrades.append(Button(230, 190, "+0.1 speed $10", buySpeedUpgrade))
-upgrades.append(Button(230, 240, "-50ms Colldown $15", buyMiningSpeedUpgrade))
-
-shopButton = Button(560, 40, "Shop", openShop)
 
 # Collisions
 
@@ -167,6 +167,9 @@ def collision(tiles, axis):
                     player.rect.y -= player.directionVector.y * player.speed
 
 # Gameloop
+player = Player()
+shop = Shop()
+
 running = True
 clock = pygame.time.Clock()
 deltaTime = 0
@@ -179,11 +182,11 @@ while running:
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             mousePosition = pygame.mouse.get_pos()
 
-            shopButton.onClick(mousePosition)
+            shop.shopButton.onClick(mousePosition)
 
-            if shopOpen:
-                for upgrade in upgrades:
-                    upgrade.onClick(mousePosition)
+            if shop.isOpen:
+                for button in shop.upgradeButtons:
+                    button.onClick(mousePosition)
 
     keys = pygame.key.get_pressed()
     player.directionVector.x = keys[pygame.K_d] - keys[pygame.K_a]
@@ -203,26 +206,26 @@ while running:
 
     for tile in tiles:
         if (tile.type == "empty"):
-            window.blit(tileMapImage, tile.rect, (tileSize* 5, tileSize, tileSize * 6, tileSize * 2))
-        elif (tile.hidden):
-            window.blit(tileMapImage, tile.rect, (tileSize, 0, tileSize * 2, tileSize))
-        elif (tile.type == "dirt"):
             window.blit(tileMapImage, tile.rect, (0, 0, tileSize, tileSize))
+        elif (tile.hidden):
+            window.blit(tileMapImage, tile.rect, (tileSize * 3, 0, tileSize * 4, tileSize))
+        elif (tile.type == "dirt"):
+            window.blit(tileMapImage, tile.rect, (tileSize, 0, tileSize, tileSize))
         elif (tile.type == "ore"):
-            window.blit(tileMapImage, tile.rect, (tileSize, tileSize * 3, tileSize * 2, tileSize * 4))
+            window.blit(tileMapImage, tile.rect, (tileSize * 2, 0, tileSize * 3, tileSize))
 
-    window.blit(player.image, player, (0, 0, 24, 24))
+    window.blit(player.image, player, (0, 0, 48, 48))
 
     moneyCounter = font.render(f"Money: ${round(player.money, 2)}", True, "white", "black")
     window.blit(moneyCounter, (10, 10))
     
-    shopButton.draw(window)
+    shop.shopButton.draw(window)
     
-    if shopOpen:
+    if shop.isOpen:
         pygame.draw.rect(window, "black", (195, 100, 250, 300))
 
-        for upgrade in upgrades:
-            upgrade.draw(window)
+        for button in shop.upgradeButtons:
+            button.draw(window)
 
     pygame.display.update()
 
